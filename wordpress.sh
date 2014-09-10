@@ -1,14 +1,11 @@
 #/bin/sh
-#Creating Random WP Database Credenitals
-install_dir="/var/www/html"
-blog_title="Default Vultr Wordpress Install"
-admin_mail="someone@example.com"
-admin_password="123456"
 
+install_dir="/var/www/html"
+#Creating Random WP Database Credenitals
 db_name="wp`date +%s`"
 db_user=$db_name
 db_password=`date |md5sum |cut -c '1-12'`
-mysqlrootpass=`date |md5sum |cut -c '1-12'`
+mysqlrootpass=`date |md5sum |cut -c '12-24'`
 
 
 ####  Install Packages for https and mysql
@@ -22,6 +19,7 @@ iptables -A INPUT -p tcp -m tcp --dport 80 -j ACCEPT
 iptables -A INPUT -p tcp -m tcp --dport 443 -j ACCEPT
 /etc/init.d/iptables save
 /etc/init.d/iptables restart
+#### Start http
 /etc/init.d/httpd start
 chkconfig httpd on
 
@@ -45,7 +43,7 @@ yum -y install php php-common php-mysql php-gd php-mbstring php-mcrypt php-xml p
 #echo "<?php phpinfo();?>" >> /var/www/html/index.php
 
 
-#Download latest Wordpress Package
+#Download and extract latest Wordpress Package
 if test -f /tmp/latest.tar.gz
 then
     echo "WP is already downloaded."
@@ -57,13 +55,14 @@ fi
 /bin/tar -C $install_dir -zxf /tmp/latest.tar.gz --strip-components=1
 chown nobody: $install_dir -R
 
+#### Create WP-config and set DB credentials
 /bin/mv $install_dir/wp-config-sample.php $install_dir/wp-config.php
 
 /bin/sed -i "s/database_name_here/$db_name/g" $install_dir/wp-config.php
 /bin/sed -i "s/username_here/$db_user/g" $install_dir/wp-config.php
 /bin/sed -i "s/password_here/$db_password/g" $install_dir/wp-config.php
 
-#WP Salts
+##### Set WP Salts
 grep -A50 'table_prefix' $install_dir/wp-config.php > /tmp/wp-tmp-config
 /bin/sed -i '/**#@/,/$p/d' $install_dir/wp-config.php
 /usr/bin/lynx --dump -width 200 https://api.wordpress.org/secret-key/1.1/salt/ >> $install_dir/wp-config.php
@@ -71,13 +70,8 @@ grep -A50 'table_prefix' $install_dir/wp-config.php > /tmp/wp-tmp-config
 /usr/bin/mysql -u root -e "CREATE DATABASE $db_name"
 /usr/bin/mysql -u root -e "GRANT ALL PRIVILEGES ON $db_name.* to '"$db_user"'@'localhost' IDENTIFIED BY '"$db_password"';"
 
-/usr/bin/php -r "
-include '"$install_dir"/wp-admin/install.php';
-wp_install('"$blog_title"', 'admin', '"$admin_email"', 1, '', '"$admin_password"');
-" > /dev/null 2>&1
-
+######Display generated passwords to log file.
 echo "Database Name: " $db_name
 echo "Database User: " $db_user
 echo "Database Password: " $db_password
 echo "Mysql root password: " $mysqlrootpass
-
