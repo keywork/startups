@@ -63,8 +63,8 @@ grep -A50 'table_prefix' $install_dir/wp-config.php > /tmp/wp-tmp-config
 /bin/sed -i '/**#@/,/$p/d' $install_dir/wp-config.php
 /usr/bin/lynx --dump -width 200 https://api.wordpress.org/secret-key/1.1/salt/ >> $install_dir/wp-config.php
 /bin/cat /tmp/wp-tmp-config >> $install_dir/wp-config.php && rm /tmp/wp-tmp-config -f
-/usr/bin/mysql -e "CREATE DATABASE $db_name"
-/usr/bin/mysql -e "GRANT ALL PRIVILEGES ON $db_name.* to '"$db_user"'@'localhost' IDENTIFIED BY '"$db_password"';"
+/usr/bin/mysql -u root -p $mysqlrootpass -e "CREATE DATABASE $db_name"
+/usr/bin/mysql -u root -p $mysqlrootpass -e "GRANT ALL PRIVILEGES ON $db_name.* to '"$db_user"'@'localhost' IDENTIFIED BY '"$db_password"';"
 
 /usr/bin/php -r "
 include '"$install_dir"/wp-admin/install.php';
