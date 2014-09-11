@@ -42,11 +42,11 @@ chkconfig postgresql-9.3 on
 chkconfig nginx on
 /etc/init.d/nginx stop
 
-su - -c "psql" postgres
-CREATE USER $db_user WITH PASSWORD $db_password;
+su - -c "psql" postgres << EOF
+CREATE USER $db_user WITH PASSWORD '$db_password';
 CREATE DATABASE $db_name OWNER $db_user ENCODING 'UTF8';
 GRANT ALL PRIVILEGES ON DATABASE $db_name TO $db_user;
-\q
+EOF
 
 sed -i '/post_max_size/c\post_max_size = 2G' /etc/php.ini 
 sed -i '/cgi.fix_pathinfo/c\cgi.fix_pathinfo = 0' /etc/php.ini
