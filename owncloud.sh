@@ -27,16 +27,16 @@ touch /etc/yum.repos.d/nginx.repo
 cat <<EOF > /etc/yum.repos.d/nginx.repo
 [nginx]
 name=nginx repo
-baseurl=http://nginx.org/packages/centos/$releasever/$basearch/
+baseurl=http://nginx.org/packages/centos/"\$releasever"/"\$basearch"/
 gpgcheck=0
 enabled=1
 EOF
 
 yum -y update
 yum -y install nginx postgresql93 postgresql93-libs postgresql93-server wget php-fpm php-gd php-ldap php-pear php-xml php-xmlrpc php-magickwand php-magpierss php-mbstring php-mcrypt php-shout php-snmp php-soap php-tidy php-pgsql php-pdo
+service postgresql-9.3 initdb
 
-/etc/init.d/postgresql-9.3 initdb
-/etc/init.d/postgresql-9.3 start
+service postgresql-9.3 start
 chkconfig postgresql-9.3 on
 /etc/init.d/nginx start
 chkconfig nginx on
