@@ -1,4 +1,5 @@
 #/bin/sh
+#####Generate Database Credentials
 db_name="oc`date +%s`"
 sleep 1
 db_user="oc`date +%s`"
@@ -14,19 +15,15 @@ iptables -A INPUT -p tcp -m tcp --dport 80 -j ACCEPT
 iptables -A INPUT -p tcp -m tcp --dport 443 -j ACCEPT
 /etc/init.d/iptables save
 /etc/init.d/iptables restart
-
+#### Remove any installed versions on mysql and enable proper php repo
 yum -y remove mysql* mysql-server mysql-devel mysql-libs 
-
 rpm -ivh http://dl.fedoraproject.org/pub/epel/6/i386/epel-release-6-8.noarch.rpm
-
 rpm -ivh http://rpms.famillecollet.com/enterprise/remi-release-6.rpm
-
 rpm -ivh http://yum.postgresql.org/9.3/redhat/rhel-6-i386/pgdg-centos93-9.3-1.noarch.rpm
 sed -i '/\[remi\]/,/^ *\[/ s/enabled=0/enabled=1/' /etc/yum.repos.d/remi.repo
 sed -i '/\[remi-php56\]/,/^ *\[/ s/enabled=0/enabled=1/' /etc/yum.repos.d/remi.repo
-
+#### Enable latest nginx repo
 touch /etc/yum.repos.d/nginx.repo
-
 cat <<EOF > /etc/yum.repos.d/nginx.repo
 [nginx]
 name=nginx repo
@@ -34,7 +31,7 @@ baseurl=http://nginx.org/packages/centos/"\$releasever"/"\$basearch"/
 gpgcheck=0
 enabled=1
 EOF
-
+#### Install Nginx and pgsql
 yum -y update
 yum -y install nginx postgresql93 postgresql93-libs postgresql93-server wget php-fpm php-gd php-ldap php-pear php-xml php-xmlrpc php-magickwand php-magpierss php-mbstring php-mcrypt php-shout php-snmp php-soap php-tidy php-pgsql php-pdo
 service postgresql-9.3 initdb
@@ -44,18 +41,18 @@ chkconfig postgresql-9.3 on
 /etc/init.d/nginx start
 chkconfig nginx on
 /etc/init.d/nginx stop
-
+#### Set Database Credentials and Create Database
 su - -c "psql" postgres << EOF
 CREATE USER $db_user WITH PASSWORD '$db_password';
 CREATE DATABASE $db_name OWNER $db_user ENCODING 'UTF8';
 GRANT ALL PRIVILEGES ON DATABASE $db_name TO $db_user;
 EOF
-
+#### Apply PHP settings
 sed -i '/post_max_size/c\post_max_size = 2G' /etc/php.ini 
 sed -i '/cgi.fix_pathinfo/c\cgi.fix_pathinfo = 0' /etc/php.ini
 sed -i '/upload_max_filesize/c\upload_max_filesize = 2G' /etc/php.ini
 sed -i '/date.timezone/c\date.timezone = "UTC"' /etc/php.ini
-
+#### Set NGINX and PGSQL settings
 chkconfig php-fpm on
 /etc/init.d/php-fpm start
 sed -i '0,/ident/! {0,/ident/ s/ident/md5/}' /var/lib/pgsql/9.3/data/pg_hba.conf
@@ -139,13 +136,13 @@ server {
 
 }
 EOF
-
+####Generate Self-signed SSl cert
 cd ..
 cd cert
 openssl req -x509 -nodes -sha384 -days 3650 -newkey rsa:4096 -keyout server.key -out server.crt -subj "/"
 chmod 600 server.key
 chmod 600 server.crt
-
+####Download and extract Owncloud software
 cd /var/www
 wget --no-check-certificate https://download.owncloud.org/community/owncloud-7.0.2.tar.bz2
 tar xjf owncloud-7.0.2.tar.bz2
