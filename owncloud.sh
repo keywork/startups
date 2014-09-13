@@ -1,11 +1,14 @@
 #/bin/sh
-db_name="wp`date +%s`"
-db_user=$db_name
+db_name="oc`date +%s`"
+sleep 1
+db_user="oc`date +%s`"
+sleep 1
 db_password=`date |md5sum |cut -c '1-12'`
 
 ip_addr=$(ifconfig | grep -v '127.0.0.1' | sed -n 's/.*inet addr:\([0-9.]\+\)\s.*/\1/p')
 ##### Open firewall for http and SSL
 iptables -F
+iptables -A INPUT -i lo -j ACCEPT
 iptables -A INPUT -p tcp -m tcp --dport 22 -j ACCEPT
 iptables -A INPUT -p tcp -m tcp --dport 80 -j ACCEPT
 iptables -A INPUT -p tcp -m tcp --dport 443 -j ACCEPT
@@ -55,8 +58,8 @@ sed -i '/date.timezone/c\date.timezone = "UTC"' /etc/php.ini
 
 chkconfig php-fpm on
 /etc/init.d/php-fpm start
-
-sed '0,/ident/! {0,/ident/ s/ident/password/}' /var/lib/pgsql/9.3/data/pg_hba.conf
+sed -i '0,/ident/! {0,/ident/ s/ident/md5/}' /var/lib/pgsql/9.3/data/pg_hba.conf
+sed -i '0,/ident/! {0,/ident/ s/ident/md5/}' /var/lib/pgsql/9.3/data/pg_hba.conf
 cd /etc/nginx
 mkdir -p cert
 cd conf.d
@@ -87,9 +90,9 @@ server {
         client_max_body_size 10G; # set max upload size
         fastcgi_buffers 64 4K;
 
-        rewrite ^/caldav(.*)$ /remote.php/caldav$1 redirect;
-        rewrite ^/carddav(.*)$ /remote.php/carddav$1 redirect;
-        rewrite ^/webdav(.*)$ /remote.php/webdav$1 redirect;
+        rewrite ^/caldav(.*)$ /remote.php/caldav\$1 redirect;
+        rewrite ^/carddav(.*)$ /remote.php/carddav\$1 redirect;
+        rewrite ^/webdav(.*)$ /remote.php/webdav\$1 redirect;
 
         index index.php;
         error_page 403 /core/templates/403.php;
@@ -112,17 +115,17 @@ server {
                 rewrite ^/.well-known/carddav /remote.php/carddav/ redirect;
                 rewrite ^/.well-known/caldav /remote.php/caldav/ redirect;
 
-                rewrite ^(/core/doc/[^\/]+/)$ $1/index.html;
+                rewrite ^(/core/doc/[^\/]+/)$ \$1/index.html;
 
-                try_files $uri $uri/ index.php;
+                try_files \$uri \$uri/ index.php;
         }
 
         location ~ ^(.+?\.php)(/.*)?$ {
-                try_files $1 = 404;
+                try_files \$1 = 404;
 
                 include fastcgi_params;
-                fastcgi_param SCRIPT_FILENAME $document_root$1;
-                fastcgi_param PATH_INFO $2;
+                fastcgi_param SCRIPT_FILENAME \$document_root\$1;
+                fastcgi_param PATH_INFO \$2;
                 fastcgi_param HTTPS on;
                 fastcgi_pass php-handler;
        }
@@ -144,9 +147,23 @@ chmod 600 server.key
 chmod 600 server.crt
 
 cd /var/www
-wget https://download.owncloud.org/community/owncloud-7.0.2.tar.bz2
+wget --no-check-certificate https://download.owncloud.org/community/owncloud-7.0.2.tar.bz2
 tar xjf owncloud-7.0.2.tar.bz2
 mkdir -p owncloud/data
+touch owncloud/config/autoconfig.php
+cat << EOF >> owncloud/config/autoconfig.php
+<?php
+\$AUTOCONFIG = array(
+  "dbtype"        => "pgsql",
+  "dbname"        => "$db_name",
+  "dbuser"        => "$db_user",
+  "dbpass"        => "$db_password",
+  "dbhost"        => "localhost",
+  "dbtableprefix" => "",
+  "directory"     => "/var/www/owncloud/data",
+);
+EOF
+
 chmod 770 owncloud/data
 chmod 777 owncloud/config/
 chown -R root:apache owncloud
